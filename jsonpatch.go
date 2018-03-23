@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -45,6 +47,25 @@ func (a ByPath) Len() int           { return len(a) }
 func (a ByPath) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByPath) Less(i, j int) bool { return a[i].Path < a[j].Path }
 
+type ByPathIndex []Operation
+
+func (a ByPathIndex) Len() int      { return len(a) }
+func (a ByPathIndex) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByPathIndex) Less(i, j int) bool {
+	sp1 := strings.Split(a[i].Path, "/")
+	sp2 := strings.Split(a[j].Path, "/")
+	idx1, err := strconv.Atoi(sp1[len(sp1)-1])
+	if err != nil {
+		panic(fmt.Sprintf("expected int. got: %T", sp1[len(sp1)-1]))
+	}
+	idx2, err := strconv.Atoi(sp2[len(sp2)-1])
+	if err != nil {
+		panic(fmt.Sprintf("expected int. got: %T", sp2[len(sp2)-1]))
+	}
+
+	return idx1 < idx2
+}
+
 func NewPatch(operation, path string, value interface{}) Operation {
 	return Operation{Operation: operation, Path: path, Value: value}
 }
@@ -83,12 +104,12 @@ func matchesValue(av, bv interface{}) bool {
 			return true
 		}
 	case float64:
-		bt, ok  := bv.(float64)
+		bt, ok := bv.(float64)
 		if ok && bt == at {
 			return true
 		}
 	case bool:
-		bt, ok  := bv.(bool)
+		bt, ok := bv.(bool)
 		if ok && bt == at {
 			return true
 		}
@@ -170,6 +191,7 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 			return nil, err
 		}
 	}
+
 	// Now add all deleted values as nil
 	for key := range a {
 		_, found := b[key]
@@ -179,6 +201,7 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 			patch = append(patch, NewPatch("remove", p, nil))
 		}
 	}
+
 	return patch, nil
 }
 
@@ -203,7 +226,28 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 	case []interface{}:
 		bt := bv.([]interface{})
 		if isSimpleArray(at) && isSimpleArray(bt) {
-			patch = append(patch, compareEditDistance(at, bt, p)...)
+			ptc := compareEditDistance(at, bt, p)
+
+			// Gather removals and non-removals
+			var removals []Operation
+			var filtered []Operation
+			for _, v := range ptc {
+				if v.Operation == "remove" {
+					removals = append(removals, v)
+				} else {
+					filtered = append(filtered, v)
+				}
+			}
+
+			// Sort alphabetically by path
+			sort.Sort(sort.Reverse(ByPath(removals)))
+
+			// Sort numerically by path index
+			sort.Sort(sort.Reverse(ByPathIndex(removals)))
+
+			// Add back removals in sorted order
+			ptc = append(filtered, removals...)
+			patch = append(patch, ptc...)
 		} else {
 			n := min(len(at), len(bt))
 			for i := len(at) - 1; i >= n; i-- {
