@@ -183,9 +183,18 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 }
 
 func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation, error) {
-	// If types have changed, replace completely
-	if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-		return append(patch, NewPatch("replace", p, bv)), nil
+	{
+		at := reflect.TypeOf(av)
+		bt := reflect.TypeOf(bv)
+		if at == nil && bt == nil {
+			// do nothing
+			return patch, nil
+		} else if at == nil && bt != nil {
+			return append(patch, NewPatch("add", p, bv)), nil
+		} else if at != bt {
+			// If types have changed, replace completely (preserves null in destination)
+			return append(patch, NewPatch("replace", p, bv)), nil
+		}
 	}
 
 	var err error
@@ -219,13 +228,6 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 					return nil, err
 				}
 			}
-		}
-	case nil:
-		switch bv.(type) {
-		case nil:
-			// Both nil, fine.
-		default:
-			patch = append(patch, NewPatch("add", p, bv))
 		}
 	default:
 		panic(fmt.Sprintf("Unknown type:%T ", av))
