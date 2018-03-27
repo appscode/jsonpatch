@@ -83,12 +83,12 @@ func matchesValue(av, bv interface{}) bool {
 			return true
 		}
 	case float64:
-		bt, ok  := bv.(float64)
+		bt, ok := bv.(float64)
 		if ok && bt == at {
 			return true
 		}
 	case bool:
-		bt, ok  := bv.(bool)
+		bt, ok := bv.(bool)
 		if ok && bt == at {
 			return true
 		}
@@ -309,18 +309,21 @@ func min(x int, y int) int {
 
 func backtrace(s, t []interface{}, p string, i int, j int, matrix [][]int) []Operation {
 	if i > 0 && matrix[i-1][j]+1 == matrix[i][j] {
-		return append(backtrace(s, t, p, i-1, j, matrix), NewPatch("remove", makePath(p, i-1), nil))
+		op := NewPatch("remove", makePath(p, i-1), nil)
+		return append([]Operation{op}, backtrace(s, t, p, i-1, j, matrix)...)
 	}
 	if j > 0 && matrix[i][j-1]+1 == matrix[i][j] {
-		return append(backtrace(s, t, p, i, j-1, matrix), NewPatch("add", makePath(p, i), t[j-1]))
+		op := NewPatch("add", makePath(p, i), t[j-1])
+		return append([]Operation{op}, backtrace(s, t, p, i, j-1, matrix)...)
 	}
 	if i > 0 && j > 0 && matrix[i-1][j-1]+1 == matrix[i][j] {
 		if isBasicType(s[0]) {
-			return append(backtrace(s, t, p, i-1, j-1, matrix), NewPatch("replace", makePath(p, i-1), t[j-1]))
+			op := NewPatch("replace", makePath(p, i-1), t[j-1])
+			return append([]Operation{op}, backtrace(s, t, p, i-1, j-1, matrix)...)
 		}
 
 		p2, _ := handleValues(s[j-1], t[j-1], makePath(p, i-1), []Operation{})
-		return append(backtrace(s, t, p, i-1, j-1, matrix), p2...)
+		return append(p2, backtrace(s, t, p, i-1, j-1, matrix)...)
 	}
 	if i > 0 && j > 0 && matrix[i-1][j-1] == matrix[i][j] {
 		return backtrace(s, t, p, i-1, j-1, matrix)

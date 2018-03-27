@@ -1,9 +1,12 @@
 package jsonpatch
 
 import (
-	"github.com/stretchr/testify/assert"
+	"encoding/json"
+	"fmt"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var arraySrc = `
@@ -65,4 +68,14 @@ func TestArrayAlmostSame(t *testing.T) {
 	assert.Equal(t, change.Operation, "add", "they should be equal")
 	assert.Equal(t, change.Path, "/Lines/10", "they should be equal")
 	assert.Equal(t, float64(11), change.Value, "they should be equal")
+}
+
+func TestArrayAlmostSame22(t *testing.T) {
+	src := `{"x":["A", "B", "C"]}`
+	to := `{"x":["D"]}`
+	patch, e := CreatePatch([]byte(src), []byte(to))
+	assert.NoError(t, e)
+
+	data, _ := json.MarshalIndent(patch, "", "  ")
+	fmt.Println(string(data))
 }
