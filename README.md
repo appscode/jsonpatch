@@ -1,7 +1,7 @@
 # jsonpatch
 
-[![Build Status](https://travis-ci.org/appscode/jsonpatch.svg?branch=master)](https://travis-ci.org/appscode/jsonpatch)
-[![Go Report Card](https://goreportcard.com/badge/appscode/jsonpatch "Go Report Card")](https://goreportcard.com/report/appscode/jsonpatch)
+[![Build Status](https://travis-ci.org/gomodules/jsonpatch.svg?branch=master)](https://travis-ci.org/gomodules/jsonpatch)
+[![Go Report Card](https://goreportcard.com/badge/gomodules.xyz/jsonpatch "Go Report Card")](https://goreportcard.com/report/gomodules.xyz/jsonpatch)
 [![GoDoc](https://godoc.org/gomodules.xyz/jsonpatch?status.svg "GoDoc")](https://godoc.org/gomodules.xyz/jsonpatch)
 
 As per http://jsonpatch.com JSON Patch is specified in RFC 6902 from the IETF.
