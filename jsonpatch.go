@@ -68,7 +68,7 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	return handleValues(aI, bI, "", []JsonPatchOperation{})
+	return handleValues(aI, bI, "", []Operation{})
 }
 
 // Returns true if the values matches (must be json types)
