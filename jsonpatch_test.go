@@ -843,7 +843,10 @@ func TestCreatePatch(t *testing.T) {
 		{"Nested Member Object", oldNestedObj, newNestedObj},
 		// array with different order
 		{"Different Array", oldArray, newArray},
+		{"Array at root", `[{"asdf":"qwerty"}]`, `[{"asdf":"bla"},{"asdf":"zzz"}]`},
+		{"Empty array at root", `[]`, `[{"asdf":"bla"},{"asdf":"zzz"}]`},
 	}
+
 	for _, c := range cases {
 		t.Run(c.name+"[src->dst]", func(t *testing.T) {
 			check(t, c.src, c.dst)
