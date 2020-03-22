@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/iancoleman/orderedmap"
 )
 
 var errBadJSONDoc = fmt.Errorf("invalid JSON Document")
@@ -58,17 +60,41 @@ func NewOperation(op, path string, value interface{}) Operation {
 //
 // An error will be returned if any of the two documents are invalid.
 func CreatePatch(a, b []byte) ([]Operation, error) {
-	var aI interface{}
-	var bI interface{}
-	err := json.Unmarshal(a, &aI)
+	aI, err := parse(a)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	err = json.Unmarshal(b, &bI)
+	bI, err := parse(b)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
 	return handleValues(aI, bI, "", []Operation{})
+}
+
+func parse(data []byte) (interface{}, error) {
+	data = bytes.TrimSpace(data)
+	if len(data) > 0 && data[0] == '{' {
+		var aI orderedmap.OrderedMap
+		err := json.Unmarshal(data, &aI)
+		if err != nil {
+			return nil, err
+		}
+		return aI, nil
+	} else if len(data) > 0 && data[0] == '[' {
+		var aI []orderedmap.OrderedMap
+		err := json.Unmarshal(data, &aI)
+		if err != nil {
+			return nil, err
+		}
+		return aI, nil
+	} else {
+		var aI interface{}
+		err := json.Unmarshal(data, &aI)
+		if err != nil {
+			return nil, err
+		}
+		return aI, nil
+	}
 }
 
 // Returns true if the values matches (must be json types)
@@ -94,9 +120,28 @@ func matchesValue(av, bv interface{}) bool {
 		if ok && bt == at {
 			return true
 		}
-	case map[string]interface{}:
-		bt, ok := bv.(map[string]interface{})
+	case orderedmap.OrderedMap:
+		bt, ok := bv.(orderedmap.OrderedMap)
 		if !ok {
+			return false
+		}
+		for _, key := range at.Keys() {
+			if !matchesValue(get(at, key), get(bt, key)) {
+				return false
+			}
+		}
+		for _, key := range bt.Keys() {
+			if !matchesValue(get(at, key), get(bt, key)) {
+				return false
+			}
+		}
+		return true
+	case []orderedmap.OrderedMap:
+		bt, ok := bv.([]orderedmap.OrderedMap)
+		if !ok {
+			return false
+		}
+		if len(bt) != len(at) {
 			return false
 		}
 		for key := range at {
@@ -133,6 +178,11 @@ func matchesValue(av, bv interface{}) bool {
 	return false
 }
 
+func get(m orderedmap.OrderedMap, key string) interface{} {
+	v, _ := m.Get(key)
+	return v
+}
+
 // From http://tools.ietf.org/html/rfc6901#section-4 :
 //
 // Evaluation of each reference token begins by decoding any escaped
@@ -156,10 +206,11 @@ func makePath(path string, newPart interface{}) string {
 }
 
 // diff returns the (recursive) difference between a and b as an array of JsonPatchOperations.
-func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operation, error) {
-	for key, bv := range b {
+func diff(a, b *orderedmap.OrderedMap, path string, patch []Operation) ([]Operation, error) {
+	for _, key := range b.Keys() {
+		bv, _ := b.Get(key)
 		p := makePath(path, key)
-		av, ok := a[key]
+		av, ok := a.Get(key)
 		// value was added
 		if !ok {
 			patch = append(patch, NewOperation("add", p, bv))
@@ -173,8 +224,8 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 		}
 	}
 	// Now add all deleted values as nil
-	for key := range a {
-		_, found := b[key]
+	for _, key := range a.Keys() {
+		_, found := b.Get(key)
 		if !found {
 			p := makePath(path, key)
 
@@ -201,15 +252,31 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 
 	var err error
 	switch at := av.(type) {
-	case map[string]interface{}:
-		bt := bv.(map[string]interface{})
-		patch, err = diff(at, bt, p, patch)
+	case orderedmap.OrderedMap:
+		bt := bv.(orderedmap.OrderedMap)
+		patch, err = diff(&at, &bt, p, patch)
 		if err != nil {
 			return nil, err
 		}
 	case string, float64, bool:
 		if !matchesValue(av, bv) {
 			patch = append(patch, NewOperation("replace", p, bv))
+		}
+	case []orderedmap.OrderedMap:
+		bt := bv.([]orderedmap.OrderedMap)
+		n := min(len(at), len(bt))
+		for i := len(at) - 1; i >= n; i-- {
+			patch = append(patch, NewOperation("remove", makePath(p, i), nil))
+		}
+		for i := n; i < len(bt); i++ {
+			patch = append(patch, NewOperation("add", makePath(p, i), bt[i]))
+		}
+		for i := 0; i < n; i++ {
+			var err error
+			patch, err = handleValues(at[i], bt[i], makePath(p, i), patch)
+			if err != nil {
+				return nil, err
+			}
 		}
 	case []interface{}:
 		bt := bv.([]interface{})
