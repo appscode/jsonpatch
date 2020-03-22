@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/iancoleman/orderedmap"
+	"gomodules.xyz/orderedmap"
 )
 
 var errBadJSONDoc = fmt.Errorf("invalid JSON Document")
@@ -79,9 +79,9 @@ func parse(data []byte) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return aI, nil
+		return &aI, nil
 	} else if len(data) > 0 && data[0] == '[' {
-		var aI []orderedmap.OrderedMap
+		var aI []*orderedmap.OrderedMap
 		err := json.Unmarshal(data, &aI)
 		if err != nil {
 			return nil, err
@@ -120,24 +120,24 @@ func matchesValue(av, bv interface{}) bool {
 		if ok && bt == at {
 			return true
 		}
-	case orderedmap.OrderedMap:
-		bt, ok := bv.(orderedmap.OrderedMap)
+	case *orderedmap.OrderedMap:
+		bt, ok := bv.(*orderedmap.OrderedMap)
 		if !ok {
 			return false
 		}
 		for _, key := range at.Keys() {
-			if !matchesValue(get(at, key), get(bt, key)) {
+			if !matchesValue(at.Entry(key), bt.Entry(key)) {
 				return false
 			}
 		}
 		for _, key := range bt.Keys() {
-			if !matchesValue(get(at, key), get(bt, key)) {
+			if !matchesValue(at.Entry(key), bt.Entry(key)) {
 				return false
 			}
 		}
 		return true
-	case []orderedmap.OrderedMap:
-		bt, ok := bv.([]orderedmap.OrderedMap)
+	case []*orderedmap.OrderedMap:
+		bt, ok := bv.([]*orderedmap.OrderedMap)
 		if !ok {
 			return false
 		}
@@ -176,11 +176,6 @@ func matchesValue(av, bv interface{}) bool {
 		return true
 	}
 	return false
-}
-
-func get(m orderedmap.OrderedMap, key string) interface{} {
-	v, _ := m.Get(key)
-	return v
 }
 
 // From http://tools.ietf.org/html/rfc6901#section-4 :
@@ -252,9 +247,9 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 
 	var err error
 	switch at := av.(type) {
-	case orderedmap.OrderedMap:
-		bt := bv.(orderedmap.OrderedMap)
-		patch, err = diff(&at, &bt, p, patch)
+	case *orderedmap.OrderedMap:
+		bt := bv.(*orderedmap.OrderedMap)
+		patch, err = diff(at, bt, p, patch)
 		if err != nil {
 			return nil, err
 		}
@@ -262,8 +257,8 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 		if !matchesValue(av, bv) {
 			patch = append(patch, NewOperation("replace", p, bv))
 		}
-	case []orderedmap.OrderedMap:
-		bt := bv.([]orderedmap.OrderedMap)
+	case []*orderedmap.OrderedMap:
+		bt := bv.([]*orderedmap.OrderedMap)
 		n := min(len(at), len(bt))
 		for i := len(at) - 1; i >= n; i-- {
 			patch = append(patch, NewOperation("remove", makePath(p, i), nil))

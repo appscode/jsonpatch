@@ -14,5 +14,5 @@ env:
   - GO111MODULE=on
 
 script:
-  - cd v2
+  - cd v3
   - go test -v
