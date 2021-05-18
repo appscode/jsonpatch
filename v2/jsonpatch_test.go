@@ -801,6 +801,41 @@ var (
 }`
 )
 
+var (
+	nullKeyA = `{
+  "apiVersion": "cert-manager.io/v1",
+  "kind": "CertificateRequest",
+  "metadata": {
+    "creationTimestamp": null,
+    "name": "test-cr",
+    "namespace": "default-unit-test-ns"
+  },
+  "spec": {
+    "issuerRef": {
+      "name": ""
+    },
+    "request": null
+  },
+  "status": {}
+}`
+	nullKeyB = `{
+  "apiVersion": "cert-manager.io/v1",
+  "kind": "CertificateRequest",
+  "metadata": {
+    "creationTimestamp": null,
+    "name": "test-cr",
+    "namespace": "default-unit-test-ns"
+  },
+  "spec": {
+    "issuerRef": {
+      "name": ""
+    },
+    "request": "bXV0YXRpb24gY2FsbGVk"
+  },
+  "status": {}
+}`
+)
+
 func TestCreatePatch(t *testing.T) {
 	cases := []struct {
 		name string
@@ -845,6 +880,7 @@ func TestCreatePatch(t *testing.T) {
 		{"Different Array", oldArray, newArray},
 		{"Array at root", `[{"asdf":"qwerty"}]`, `[{"asdf":"bla"},{"asdf":"zzz"}]`},
 		{"Empty array at root", `[]`, `[{"asdf":"bla"},{"asdf":"zzz"}]`},
+		{"Null Key uses replace operation", nullKeyA, nullKeyB},
 	}
 
 	for _, c := range cases {
